@@ -36,6 +36,18 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
+.collapse-button::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-top: 2px solid white;
+  border-right: 2px solid white;
+  position: absolute;
+  left: 55%;
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(225deg);
+}
+
 .collapse-button:hover {
   transform: scale(1.1);
 }
@@ -129,4 +141,4 @@
   .filter-section {
     margin-bottom: 1.5rem;
   }
-} 
+}
