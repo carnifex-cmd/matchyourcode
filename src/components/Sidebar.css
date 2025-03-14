@@ -1,0 +1,132 @@
+.sidebar {
+  width: 250px;
+  background-color: white;
+  padding: 2rem;
+  height: 100vh;
+  position: fixed;
+  left: 0;
+  top: 0;
+  border-right: 1px solid rgba(0, 0, 0, 0.1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: visible;
+  z-index: 1000;
+}
+
+.sidebar.collapsed {
+  width: 60px;
+  padding: 2rem 0;
+}
+
+.collapse-button {
+  position: absolute;
+  right: -16px;
+  top: 24px;
+  width: 32px;
+  height: 32px;
+  background-color: var(--primary);
+  border: none;
+  border-radius: 50%;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.3s ease;
+  z-index: 1001;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.collapse-button:hover {
+  transform: scale(1.1);
+}
+
+.sidebar.collapsed .collapse-button {
+  transform: rotate(180deg);
+  right: -16px;
+}
+
+.sidebar.collapsed .collapse-button:hover {
+  transform: rotate(180deg) scale(1.1);
+}
+
+.filter-section {
+  margin-bottom: 2.5rem;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.sidebar.collapsed .filter-section {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.filter-section h3 {
+  margin: 0 0 1.2rem 0;
+  color: var(--primary);
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.filter-label {
+  display: flex;
+  align-items: center;
+  margin: 0.8rem 0;
+  cursor: pointer;
+  user-select: none;
+  color: var(--primary);
+  font-size: 1rem;
+  transition: var(--transition);
+}
+
+.filter-label:hover {
+  opacity: 0.7;
+}
+
+.filter-label input[type="checkbox"] {
+  margin-right: 0.8rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  border: 2px solid var(--primary);
+  border-radius: 4px;
+  cursor: pointer;
+  accent-color: var(--primary);
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    width: 100%;
+    height: auto;
+    position: relative;
+    border-right: none;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    padding: 1.5rem;
+    overflow: hidden;
+  }
+
+  .sidebar.collapsed {
+    padding: 0;
+    height: 50px;
+  }
+
+  .collapse-button {
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%) rotate(90deg);
+    width: 28px;
+    height: 28px;
+  }
+
+  .sidebar.collapsed .collapse-button {
+    transform: translateY(-50%) rotate(270deg);
+    right: 16px;
+  }
+
+  .sidebar.collapsed .collapse-button:hover {
+    transform: translateY(-50%) rotate(270deg) scale(1.1);
+  }
+
+  .filter-section {
+    margin-bottom: 1.5rem;
+  }
+} 
