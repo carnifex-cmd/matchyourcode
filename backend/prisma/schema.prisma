@@ -14,13 +14,14 @@ datasource db {
 }
 
 model User {
-  id           Int           @id @default(autoincrement())
-  username     String        @unique
-  email        String        @unique
-  password     String
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  userProblems UserProblem[]
+  id                Int           @id @default(autoincrement())
+  username          String        @unique
+  email             String        @unique
+  password          String
+  lastViewedProblemId Int?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  userProblems      UserProblem[]
 }
 
 model Problem {

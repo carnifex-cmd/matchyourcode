@@ -8,6 +8,37 @@ import { fetchProblems, updateProblemState } from '../services/api';
 const Problems = () => {
   const { logout } = useAuth();
   const navigate = useNavigate();
+
+  const getFilteredProblems = (problems = []) => {
+    if (!problems || !Array.isArray(problems)) return [];
+    return problems.filter(problem => {
+      if (!problem || !problem.difficulty || !problem.topic) return false;
+      const matchesDifficulty = filters?.difficulties?.includes(problem.difficulty) ?? false;
+      const matchesTopic = filters?.topics?.includes(problem.topic) ?? false;
+      return matchesDifficulty && matchesTopic;
+    });
+  };
+
+  const getAvailableCards = () => {
+    const problems = (() => {
+      switch (activeView) {
+        case 'toLearn':
+          return getFilteredProblems(toLearn);
+        case 'toRevise':
+          return getFilteredProblems(toRevise);
+        default:
+          return getFilteredProblems(currentProblems);
+      }
+    })();
+    
+    if (!problems || problems.length === 0) return [];
+    if (currentIndex >= problems.length) {
+      setCurrentIndex(0);
+      return [problems[0]];
+    }
+    return [problems[currentIndex]];
+  };
+
   const [filters, setFilters] = useState({
     difficulties: ['Easy', 'Medium', 'Hard'],
     topics: ['Array', 'Linked List', 'Tree', 'Hash Table', 'String', 'Dynamic Programming', 'Math', 'Depth-First Search', 'Binary Search', 'Two Pointers']
@@ -22,6 +53,8 @@ const Problems = () => {
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentProblemId, setCurrentProblemId] = useState(null);
 
   // Fetch problems from backend
   const loadProblems = async (isRefresh = false, page = 1) => {
@@ -35,11 +68,36 @@ const Problems = () => {
       const response = await fetchProblems(page);
       const { problems = [], toLearn = [], toRevise = [], pagination = {} } = response;
       console.log('API Response:', { problems, toLearn, toRevise, pagination });
+      
+      // Preserve current problem ID before updating state
+      const currentProblems = getAvailableCards();
+      const currentProblem = currentProblems[currentIndex];
+      const preservedId = currentProblem ? currentProblem.id : null;
+      
       if (page === 1) {
         console.log('Setting initial state:', { problems, toLearn, toRevise });
-        setCurrentProblems(problems);
+        // Insert new problems after current card instead of appending to end
+        setCurrentProblems(prev => {
+          const existingIds = new Set(prev.map(p => p.id));
+          const newProblems = problems.filter(p => !existingIds.has(p.id));
+          
+          if (currentIndex >= 0 && currentIndex < prev.length) {
+            // Insert after current card
+            const before = prev.slice(0, currentIndex + 1);
+            const after = prev.slice(currentIndex + 1);
+            return [...before, ...newProblems, ...after];
+          } else {
+            // If no current card, append to end
+            return [...prev, ...newProblems];
+          }
+        });
         setToLearn(toLearn);
         setToRevise(toRevise);
+        
+        // Keep the current index unchanged since we're inserting after it
+        if (preservedId && currentIndex >= 0) {
+          setCurrentIndex(currentIndex);
+        }
       } else {
         console.log('Appending to existing state:', { problems, toLearn, toRevise });
         setCurrentProblems(prev => [...prev, ...problems]);
@@ -84,6 +142,16 @@ const Problems = () => {
   };
 
   const handleSwipe = async (direction, problem) => {
+    // Update the current problems list immediately
+    setCurrentProblems(prev => prev.filter(p => p.id !== problem.id));
+    
+    // Get the updated filtered problems
+    const remainingProblems = getFilteredProblems(currentProblems.filter(p => p.id !== problem.id));
+    
+    // Update the current index based on remaining problems
+    if (remainingProblems.length > 0) {
+      setCurrentIndex(currentIndex >= remainingProblems.length ? 0 : currentIndex);
+    }
     try {
       const timestamp = Date.now();
       const newState = {
@@ -124,35 +192,7 @@ const Problems = () => {
     return <div className="error">{error}</div>;
   }
 
-  const getFilteredProblems = (problems) => {
-    console.log('Filtering problems:', { problems, filters });
-    const filtered = problems.filter(problem => {
-      const matchesDifficulty = filters.difficulties.includes(problem.difficulty);
-      const matchesTopic = filters.topics.includes(problem.topic);
-      console.log(`Problem ${problem.title}: difficulty match = ${matchesDifficulty}, topic match = ${matchesTopic}`);
-      return matchesDifficulty && matchesTopic;
-    });
-    console.log('Filtered problems:', filtered);
-    return filtered;
-  };
 
-  const getAvailableCards = () => {
-    const problems = (() => {
-      switch (activeView) {
-        case 'toLearn':
-          console.log('ToLearn view state:', toLearn);
-          return getFilteredProblems(toLearn);
-        case 'toRevise':
-          console.log('ToRevise view state:', toRevise);
-          return getFilteredProblems(toRevise);
-        default:
-          console.log('Current problems state:', currentProblems);
-          return getFilteredProblems(currentProblems);
-      }
-    })();
-    console.log('Final filtered problems for view:', problems);
-    return problems;
-  };
 
   return (
     <div className="app">

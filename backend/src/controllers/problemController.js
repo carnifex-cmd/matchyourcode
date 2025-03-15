@@ -2,12 +2,12 @@ const { PrismaClient } = require('@prisma/client');
 const { fetchLeetCodeProblems } = require('../utils/leetcode');
 const prisma = new PrismaClient();
 
-// For testing, we'll use seconds instead of days
+// Review intervals in seconds for testing
 const REVIEW_INTERVALS = {
-  0: 60,    // First review: 60 seconds
-  1: 180,   // Second review: 180 seconds (3 minutes)
-  2: 420,   // Third review: 420 seconds (7 minutes)
-  3: 840    // Fourth and subsequent reviews: 840 seconds (14 minutes)
+  0: 60,     // First review: 1 minute
+  1: 180,    // Second review: 3 minutes
+  2: 300,    // Third review: 5 minutes
+  3: 600     // Fourth and subsequent reviews: 10 minutes
 };
 
 // Helper function to format time
@@ -92,7 +92,7 @@ const getProblems = async (req, res) => {
       const now = new Date();
       const lastShown = new Date(userProblem.lastShown);
       const secondsSinceLastShown = Math.max(0, (now - lastShown) / 1000);
-
+      
       // Get the review interval based on revision count
       const revisionCount = Math.min(userProblem.revisionCount, 3); // Cap at 3 for the maximum interval
       const requiredInterval = REVIEW_INTERVALS[revisionCount];
@@ -179,6 +179,12 @@ const updateProblemState = async (req, res) => {
       status, 
       lastShown, 
       revisionCount 
+    });
+
+    // Update user's last viewed problem
+    await prisma.user.update({
+      where: { id: userId },
+      data: { lastViewedProblemId: parseInt(id) }
     });
 
     // Find or create user problem state
