@@ -27,8 +27,19 @@ const ProblemCard = ({ problem, onSwipe, view }) => {
           </span>
           <span className="topic-badge">{problem.topic}</span>
         </div>
-        <h3 className="problem-title">{problem.title}</h3>
-        <p className="problem-preview">{problem.description}</p>
+        <h3 className="problem-title">
+          {problem.titleSlug ? (
+            <a 
+              href={`https://leetcode.com/problems/${problem.titleSlug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {problem.title}
+            </a>
+          ) : (
+            problem.title
+          )}
+        </h3>
         
         {view === 'problems' && (
           <div className="card-actions">
@@ -51,4 +62,4 @@ const ProblemCard = ({ problem, onSwipe, view }) => {
   );
 };
 
-export default ProblemCard; 
+export default ProblemCard;

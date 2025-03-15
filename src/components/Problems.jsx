@@ -10,7 +10,7 @@ const Problems = () => {
   const navigate = useNavigate();
   const [filters, setFilters] = useState({
     difficulties: ['Easy', 'Medium', 'Hard'],
-    topics: ['Arrays', 'LinkedLists', 'Trees']
+    topics: ['Array', 'Linked List', 'Tree', 'Hash Table', 'String', 'Dynamic Programming', 'Math', 'Depth-First Search', 'Binary Search', 'Two Pointers']
   });
 
   const [currentProblems, setCurrentProblems] = useState([]);
@@ -20,9 +20,11 @@ const Problems = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
 
   // Fetch problems from backend
-  const loadProblems = async (isRefresh = false) => {
+  const loadProblems = async (isRefresh = false, page = 1) => {
     try {
       if (!isRefresh) {
         setLoading(true);
@@ -30,10 +32,21 @@ const Problems = () => {
         setRefreshing(true);
       }
       
-      const response = await fetchProblems();
-      setCurrentProblems(response.problems || []);
-      setToLearn(response.toLearn || []);
-      setToRevise(response.toRevise || []);
+      const response = await fetchProblems(page);
+      const { problems = [], toLearn = [], toRevise = [], pagination = {} } = response;
+      console.log('API Response:', { problems, toLearn, toRevise, pagination });
+      if (page === 1) {
+        console.log('Setting initial state:', { problems, toLearn, toRevise });
+        setCurrentProblems(problems);
+        setToLearn(toLearn);
+        setToRevise(toRevise);
+      } else {
+        console.log('Appending to existing state:', { problems, toLearn, toRevise });
+        setCurrentProblems(prev => [...prev, ...problems]);
+        setToLearn(prev => [...prev, ...toLearn]);
+        setToRevise(prev => [...prev, ...toRevise]);
+      }
+      setHasMore(pagination.hasMore || false);
       setError(null);
     } catch (err) {
       setError('Failed to load problems. Please try again later.');
@@ -46,14 +59,29 @@ const Problems = () => {
 
   // Initial load
   useEffect(() => {
-    loadProblems();
+    loadProblems(false, 1);
+    setCurrentPage(1);
+    console.log('Initial filters state:', filters);
   }, []);
 
   // Refresh problems every 10 seconds to update countdown
   useEffect(() => {
-    const intervalId = setInterval(() => loadProblems(true), 10000);
+    console.log('Setting up refresh interval with current page:', currentPage);
+    const intervalId = setInterval(() => loadProblems(true, currentPage), 10000);
     return () => clearInterval(intervalId);
-  }, []);
+  }, [currentPage]);
+
+  const handleFilterChange = (filterType, value) => {
+    console.log('Filter change:', { filterType, value });
+    setFilters(prev => {
+      const newFilters = {
+        ...prev,
+        [filterType]: value
+      };
+      console.log('New filters state:', newFilters);
+      return newFilters;
+    });
+  };
 
   const handleSwipe = async (direction, problem) => {
     try {
@@ -75,19 +103,20 @@ const Problems = () => {
     }
   };
 
-  const handleFilterChange = (filterType, value) => {
-    setFilters(prev => ({
-      ...prev,
-      [filterType]: value
-    }));
-  };
-
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
-  if (loading) {
+  const loadMore = () => {
+    if (!loading && hasMore) {
+      const nextPage = currentPage + 1;
+      setCurrentPage(nextPage);
+      loadProblems(false, nextPage);
+    }
+  };
+
+  if (loading && currentPage === 1) {
     return <div className="loading">Loading problems...</div>;
   }
 
@@ -96,21 +125,33 @@ const Problems = () => {
   }
 
   const getFilteredProblems = (problems) => {
-    return problems.filter(problem => 
-      filters.difficulties.includes(problem.difficulty) &&
-      filters.topics.includes(problem.topic)
-    );
+    console.log('Filtering problems:', { problems, filters });
+    const filtered = problems.filter(problem => {
+      const matchesDifficulty = filters.difficulties.includes(problem.difficulty);
+      const matchesTopic = filters.topics.includes(problem.topic);
+      console.log(`Problem ${problem.title}: difficulty match = ${matchesDifficulty}, topic match = ${matchesTopic}`);
+      return matchesDifficulty && matchesTopic;
+    });
+    console.log('Filtered problems:', filtered);
+    return filtered;
   };
 
   const getAvailableCards = () => {
-    switch (activeView) {
-      case 'toLearn':
-        return getFilteredProblems(toLearn);
-      case 'toRevise':
-        return getFilteredProblems(toRevise);
-      default:
-        return getFilteredProblems(currentProblems);
-    }
+    const problems = (() => {
+      switch (activeView) {
+        case 'toLearn':
+          console.log('ToLearn view state:', toLearn);
+          return getFilteredProblems(toLearn);
+        case 'toRevise':
+          console.log('ToRevise view state:', toRevise);
+          return getFilteredProblems(toRevise);
+        default:
+          console.log('Current problems state:', currentProblems);
+          return getFilteredProblems(currentProblems);
+      }
+    })();
+    console.log('Final filtered problems for view:', problems);
+    return problems;
   };
 
   return (
@@ -172,4 +213,4 @@ const Problems = () => {
   );
 };
 
-export default Problems; 
+export default Problems;

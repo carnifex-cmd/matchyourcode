@@ -1,4 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
+const { fetchLeetCodeProblems } = require('../utils/leetcode');
 const prisma = new PrismaClient();
 
 // For testing, we'll use seconds instead of days
@@ -23,9 +24,45 @@ const getProblems = async (req, res) => {
     
     // Get user ID from auth token
     const userId = req.user.id;
+    
+    // Get pagination parameters from query string
+    const page = parseInt(req.query.page) || 1;
+    const limit = 10;
+    const skip = (page - 1) * limit;
 
-    // Get all problems with their user states
-    const problems = await prisma.problem.findMany({
+    // Get total count of problems
+    const totalProblems = await prisma.problem.count();
+
+    // Fetch problems from database first with pagination
+    let problems = await prisma.problem.findMany({
+      take: limit,
+      skip: skip
+    });
+    console.log(`Found ${problems.length} problems in database`);
+
+    // If no problems exist in the database, fetch from LeetCode
+    if (problems.length === 0) {
+      console.log('No problems found in database, fetching from LeetCode...');
+      const leetcodeProblems = await fetchLeetCodeProblems();
+      
+      // Store the problems in the database
+      await prisma.problem.createMany({
+        data: leetcodeProblems.map(problem => ({
+          title: problem.title,
+          difficulty: problem.difficulty,
+          topic: problem.topic,
+          leetcodeId: problem.leetcodeId,
+          titleSlug: problem.titleSlug
+        })),
+        skipDuplicates: true
+      });
+
+      // Fetch the newly created problems
+      problems = await prisma.problem.findMany();
+    }
+
+    // Get user states for the problems
+    problems = await prisma.problem.findMany({
       include: {
         userProblems: {
           where: {
@@ -34,6 +71,7 @@ const getProblems = async (req, res) => {
         }
       }
     });
+
 
     // Process problems to include user state
     const processedProblems = await Promise.all(problems.map(async problem => {
@@ -112,7 +150,13 @@ const getProblems = async (req, res) => {
     const result = {
       problems: processedProblems.filter(p => !p.userProblemState),
       toLearn: processedProblems.filter(p => p.userProblemState === 'toLearn'),
-      toRevise: processedProblems.filter(p => p.userProblemState === 'toRevise')
+      toRevise: processedProblems.filter(p => p.userProblemState === 'toRevise'),
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(totalProblems / limit),
+        totalProblems: totalProblems,
+        hasMore: skip + limit < totalProblems
+      }
     };
 
     res.json(result);
@@ -193,4 +237,4 @@ module.exports = {
   getProblems,
   getProblemById,
   updateProblemState
-}; 
+};

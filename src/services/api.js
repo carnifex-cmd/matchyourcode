@@ -14,9 +14,9 @@ const getAuthHeaders = () => {
   };
 };
 
-export const fetchProblems = async () => {
+export const fetchProblems = async (page = 1) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/problems`, {
+    const response = await fetch(`${API_BASE_URL}/problems?page=${page}`, {
       headers: getAuthHeaders(),
     });
     if (!response.ok) {
