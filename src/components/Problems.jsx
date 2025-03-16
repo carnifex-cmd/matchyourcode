@@ -275,21 +275,21 @@ const Problems = () => {
             className={`view-button ${activeView === 'problems' ? 'active' : ''}`}
             onClick={() => setActiveView('problems')}
           >
-            Problems ({getFilteredProblems(currentProblems).length})
+            Problems
           </button>
           <button 
             type="button"
             className={`view-button ${activeView === 'toLearn' ? 'active' : ''}`}
             onClick={() => setActiveView('toLearn')}
           >
-            To Learn ({getFilteredProblems(toLearn).length})
+            To Learn
           </button>
           <button 
             type="button"
             className={`view-button ${activeView === 'toRevise' ? 'active' : ''}`}
             onClick={() => setActiveView('toRevise')}
           >
-            To Revise ({getFilteredProblems(toRevise).length})
+            To Revise
           </button>
         </div>
 

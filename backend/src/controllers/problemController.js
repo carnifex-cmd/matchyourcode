@@ -40,10 +40,10 @@ const getProblems = async (req, res) => {
     });
     console.log(`Found ${problems.length} problems in database`);
 
-    // If no problems exist in the database, fetch from LeetCode
-    if (problems.length === 0) {
-      console.log('No problems found in database, fetching from LeetCode...');
-      const leetcodeProblems = await fetchLeetCodeProblems();
+    // Check if we need to fetch/update problems from LeetCode
+    const leetcodeProblems = await fetchLeetCodeProblems();
+    if (leetcodeProblems.length > 0) {
+      console.log('Fetching/updating problems from LeetCode...');
       
       // Store the problems in the database
       await prisma.problem.createMany({
@@ -55,6 +55,12 @@ const getProblems = async (req, res) => {
           titleSlug: problem.titleSlug
         })),
         skipDuplicates: true
+      });
+      
+      // Refetch problems after update
+      problems = await prisma.problem.findMany({
+        take: limit,
+        skip: skip
       });
 
       // Fetch the newly created problems
