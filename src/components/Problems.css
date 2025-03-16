@@ -69,17 +69,25 @@
   align-items: center;
   height: 100vh;
   color: #000;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.cards-container {
+  position: relative;
+  min-height: 400px;
+}
+
+.cards-container > * {
+  transition: opacity 0.3s ease;
+}
+
+.cards-container.refreshing > * {
+  opacity: 0.6;
 }
 
 .refresh-indicator {
-  position: fixed;
-  top: 1rem;
-  right: 1rem;
-  padding: 0.5rem 1rem;
-  background-color: rgba(0, 0, 0, 0.1);
-  color: #000;
-  border-radius: 6px;
-  font-size: 0.9rem;
+  display: none;
 }
 
 @media (max-width: 768px) {
@@ -91,4 +99,4 @@
   .cards-container {
     grid-template-columns: 1fr;
   }
-} 
+}

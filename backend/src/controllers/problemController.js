@@ -61,16 +61,24 @@ const getProblems = async (req, res) => {
       problems = await prisma.problem.findMany();
     }
 
-    // Get user states for the problems
-    problems = await prisma.problem.findMany({
-      include: {
-        userProblems: {
-          where: {
-            userId: userId
+    // Get user states for the problems and fetch user's lastViewedProblemId
+    const [problems_with_state, user] = await Promise.all([
+      prisma.problem.findMany({
+        include: {
+          userProblems: {
+            where: {
+              userId: userId
+            }
           }
         }
-      }
-    });
+      }),
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: { lastViewedProblemId: true }
+      })
+    ]);
+    
+    problems = problems_with_state;
 
 
     // Process problems to include user state
@@ -147,8 +155,19 @@ const getProblems = async (req, res) => {
     }));
 
     // Group problems by their state
+    let availableProblems = processedProblems.filter(p => !p.userProblemState);
+    
+    // If we have a lastViewedProblemId, sort the problems array to maintain position
+    if (user?.lastViewedProblemId) {
+      availableProblems.sort((a, b) => {
+        if (a.id === user.lastViewedProblemId) return -1;
+        if (b.id === user.lastViewedProblemId) return 1;
+        return 0;
+      });
+    }
+
     const result = {
-      problems: processedProblems.filter(p => !p.userProblemState),
+      problems: availableProblems,
       toLearn: processedProblems.filter(p => p.userProblemState === 'toLearn'),
       toRevise: processedProblems.filter(p => p.userProblemState === 'toRevise'),
       pagination: {
@@ -171,20 +190,21 @@ const updateProblemState = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
-    const { status, lastShown, revisionCount } = req.body;
+    const { status, lastShown, revisionCount, lastViewedProblemId } = req.body;
 
     console.log('Updating problem state:', { 
       problemId: id, 
       userId, 
       status, 
       lastShown, 
-      revisionCount 
+      revisionCount,
+      lastViewedProblemId
     });
 
     // Update user's last viewed problem
     await prisma.user.update({
       where: { id: userId },
-      data: { lastViewedProblemId: parseInt(id) }
+      data: { lastViewedProblemId: lastViewedProblemId ? parseInt(lastViewedProblemId) : parseInt(id) }
     });
 
     // Find or create user problem state

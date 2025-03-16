@@ -41,7 +41,7 @@ const Problems = () => {
 
   const [filters, setFilters] = useState({
     difficulties: ['Easy', 'Medium', 'Hard'],
-    topics: ['Array', 'Linked List', 'Tree', 'Hash Table', 'String', 'Dynamic Programming', 'Math', 'Depth-First Search', 'Binary Search', 'Two Pointers']
+    topics: ['Array', 'Linked List', 'Tree', 'Hash Table', 'String', 'D.P.', 'Math', 'Depth-First Search', 'Binary Search', 'Two Pointers']
   });
 
   const [currentProblems, setCurrentProblems] = useState([]);
@@ -69,10 +69,10 @@ const Problems = () => {
       const { problems = [], toLearn = [], toRevise = [], pagination = {} } = response;
       console.log('API Response:', { problems, toLearn, toRevise, pagination });
       
-      // Preserve current problem ID before updating state
-      const currentProblems = getAvailableCards();
-      const currentProblem = currentProblems[currentIndex];
-      const preservedId = currentProblem ? currentProblem.id : null;
+      // Preserve current problem ID and index before updating state
+      const availableCards = getAvailableCards();
+      const currentProblem = availableCards[0];
+      const preservedId = currentProblem ? currentProblem.id : currentProblemId;
       
       if (page === 1) {
         console.log('Setting initial state:', { problems, toLearn, toRevise });
@@ -94,9 +94,13 @@ const Problems = () => {
         setToLearn(toLearn);
         setToRevise(toRevise);
         
-        // Keep the current index unchanged since we're inserting after it
-        if (preservedId && currentIndex >= 0) {
-          setCurrentIndex(currentIndex);
+        // Update current problem ID and index
+        if (preservedId) {
+          const newIndex = problems.findIndex(p => p.id === preservedId);
+          if (newIndex !== -1) {
+            setCurrentIndex(newIndex);
+            setCurrentProblemId(preservedId);
+          }
         }
       } else {
         console.log('Appending to existing state:', { problems, toLearn, toRevise });
@@ -117,8 +121,45 @@ const Problems = () => {
 
   // Initial load
   useEffect(() => {
-    loadProblems(false, 1);
-    setCurrentPage(1);
+    const initializeProblems = async () => {
+      try {
+        const response = await fetchProblems(1);
+        const { problems = [], toLearn = [], toRevise = [], pagination = {}, user } = response;
+        
+        // Set the current index based on lastViewedProblemId
+        if (user?.lastViewedProblemId) {
+          // First check in the main problems list
+          let problemIndex = problems.findIndex(p => p.id === user.lastViewedProblemId);
+          
+          // If not found in problems, check in toLearn and toRevise lists
+          if (problemIndex === -1) {
+            const problem = [...toLearn, ...toRevise].find(p => p.id === user.lastViewedProblemId);
+            if (problem) {
+              // If found in other lists, start with the first problem in main list
+              problemIndex = 0;
+            }
+          }
+          
+          if (problemIndex !== -1) {
+            setCurrentIndex(problemIndex);
+            setCurrentProblemId(problems[problemIndex].id);
+          }
+        }
+
+        setCurrentProblems(problems);
+        setToLearn(toLearn);
+        setToRevise(toRevise);
+        setHasMore(pagination.hasMore || false);
+        setCurrentPage(1);
+      } catch (error) {
+        console.error('Error initializing problems:', error);
+        setError('Failed to load problems. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeProblems();
     console.log('Initial filters state:', filters);
   }, []);
 
@@ -150,24 +191,47 @@ const Problems = () => {
     
     // Update the current index based on remaining problems
     if (remainingProblems.length > 0) {
-      setCurrentIndex(currentIndex >= remainingProblems.length ? 0 : currentIndex);
+      const newIndex = currentIndex >= remainingProblems.length ? 0 : currentIndex;
+      setCurrentIndex(newIndex);
+      // Update current problem ID
+      const nextProblemId = remainingProblems[newIndex].id;
+      setCurrentProblemId(nextProblemId);
     }
+    
     try {
       const timestamp = Date.now();
-      const newState = {
-        status: direction === 'toLearn' ? 'toLearn' : 'toRevise',
-        lastShown: timestamp,
-        revisionCount: direction === 'toLearn' ? 0 : (problem.revisionCount || 0) + 1
-      };
-
-      // Update the state in the backend
-      await updateProblemState(problem.id, newState);
+      const nextProblem = remainingProblems.length > 0 ? remainingProblems[currentIndex] : null;
       
-      // Refresh problems to get the updated state
-      await loadProblems();
+      // Update the current problem state and last viewed problem
+      await updateProblemState(problem.id, {
+        status: direction,
+        lastShown: timestamp,
+        revisionCount: direction === 'toLearn' ? 0 : (problem.revisionCount || 0) + 1,
+        lastViewedProblemId: nextProblem ? nextProblem.id : null
+      });
+      
+      // Update current problem ID
+      if (nextProblem) {
+        setCurrentProblemId(nextProblem.id);
+      }
+
+
+      // Update local state based on direction
+      if (direction === 'toLearn') {
+        setToLearn(prev => [...prev, problem]);
+      } else if (direction === 'toRevise') {
+        setToRevise(prev => [...prev, problem]);
+      }
+
+      // Load more problems if needed
+      if (remainingProblems.length === 0 && hasMore) {
+        setCurrentPage(prev => prev + 1);
+        await loadProblems(false, currentPage + 1);
+      }
     } catch (error) {
-      console.error('Failed to update problem state:', error);
-      setError('Failed to update problem state. Please try again.');
+      console.error('Error updating problem state:', error);
+      // Revert the local state changes
+      setCurrentProblems(prev => [...prev, problem]);
     }
   };
 
@@ -229,9 +293,7 @@ const Problems = () => {
           </button>
         </div>
 
-        {refreshing && <div className="refresh-indicator">Refreshing...</div>}
-
-        <div className="cards-container">
+        <div className={`cards-container ${refreshing ? 'refreshing' : ''}`}>
           {getAvailableCards().map((problem) => (
             <ProblemCard 
               key={`${problem.id}-${problem.lastShown}`}

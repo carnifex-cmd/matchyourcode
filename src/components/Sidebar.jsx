@@ -11,7 +11,7 @@ const Sidebar = ({ filters, onFilterChange }) => {
   };
 
   const difficulties = ['Easy', 'Medium', 'Hard'];
-  const topics = ['Arrays', 'LinkedLists', 'Trees'];
+  const topics = ['Array', 'Linked List', 'Tree', 'Hash Table', 'String', 'D.P.', 'Math', 'Depth-First Search', 'Binary Search', 'Two Pointers'];
 
   return (
     <div className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
@@ -75,4 +75,4 @@ const Sidebar = ({ filters, onFilterChange }) => {
   );
 };
 
-export default Sidebar; 
+export default Sidebar;
