@@ -45,17 +45,25 @@ const getProblems = async (req, res) => {
     if (leetcodeProblems.length > 0) {
       console.log('Fetching/updating problems from LeetCode...');
       
-      // Store the problems in the database
-      await prisma.problem.createMany({
-        data: leetcodeProblems.map(problem => ({
-          title: problem.title,
-          difficulty: problem.difficulty,
-          topic: problem.topic,
-          leetcodeId: problem.leetcodeId,
-          titleSlug: problem.titleSlug
-        })),
-        skipDuplicates: true
-      });
+      // Store or update problems in the database using upsert
+      for (const problem of leetcodeProblems) {
+        await prisma.problem.upsert({
+          where: { leetcodeId: problem.leetcodeId },
+          update: {
+            title: problem.title,
+            difficulty: problem.difficulty,
+            topic: problem.topic,
+            titleSlug: problem.titleSlug
+          },
+          create: {
+            title: problem.title,
+            difficulty: problem.difficulty,
+            topic: problem.topic,
+            leetcodeId: problem.leetcodeId,
+            titleSlug: problem.titleSlug
+          }
+        });
+      }
       
       // Refetch problems after update
       problems = await prisma.problem.findMany({
@@ -198,6 +206,14 @@ const updateProblemState = async (req, res) => {
     const userId = req.user.id;
     const { status, lastShown, revisionCount, lastViewedProblemId } = req.body;
 
+    // Validate input parameters
+    if (!id || !userId || !status || !lastShown) {
+      return res.status(400).json({ 
+        message: 'Missing required parameters',
+        details: { id, userId, status, lastShown }
+      });
+    }
+
     console.log('Updating problem state:', { 
       problemId: id, 
       userId, 
@@ -207,39 +223,75 @@ const updateProblemState = async (req, res) => {
       lastViewedProblemId
     });
 
-    // Update user's last viewed problem
-    await prisma.user.update({
-      where: { id: userId },
-      data: { lastViewedProblemId: lastViewedProblemId ? parseInt(lastViewedProblemId) : parseInt(id) }
-    });
+    // Use a transaction to ensure data consistency
+    const result = await prisma.$transaction(async (tx) => {
+      // First check if the problem exists
+      const problem = await tx.problem.findUnique({
+        where: { id: parseInt(id) }
+      });
 
-    // Find or create user problem state
-    const userProblem = await prisma.userProblem.upsert({
-      where: {
-        userId_problemId: {
-          userId: userId,
-          problemId: parseInt(id)
-        }
-      },
-      update: {
-        status,
-        lastShown: new Date(lastShown),
-        revisionCount
-      },
-      create: {
-        userId: userId,
-        problemId: parseInt(id),
-        status,
-        lastShown: new Date(lastShown),
-        revisionCount
+      if (!problem) {
+        throw new Error(`Problem with ID ${id} not found`);
       }
+
+      // Update user's last viewed problem
+      await tx.user.update({
+        where: { id: userId },
+        data: { lastViewedProblemId: lastViewedProblemId ? parseInt(lastViewedProblemId) : parseInt(id) }
+      });
+
+      // Find or create user problem state
+      return await tx.userProblem.upsert({
+        where: {
+          userId_problemId: {
+            userId: userId,
+            problemId: parseInt(id)
+          }
+        },
+        update: {
+          status,
+          lastShown: new Date(lastShown),
+          revisionCount: revisionCount || 0
+        },
+        create: {
+          userId: userId,
+          problemId: parseInt(id),
+          status,
+          lastShown: new Date(lastShown),
+          revisionCount: revisionCount || 0
+        }
+      });
     });
 
-    console.log('Updated user problem:', userProblem);
-    res.json(userProblem);
+    console.log('Updated user problem:', result);
+    res.json(result);
   } catch (error) {
     console.error('Error updating problem state:', error);
-    res.status(500).json({ message: 'Error updating problem state', error: error.message });
+    
+    if (error.message.includes('not found')) {
+      return res.status(404).json({ 
+        message: error.message 
+      });
+    }
+    
+    if (error.code === 'P2002') {
+      return res.status(409).json({ 
+        message: 'Conflict: This problem state already exists',
+        error: error.message 
+      });
+    }
+    
+    if (error.code === 'P2003') {
+      return res.status(400).json({ 
+        message: 'Invalid reference: The problem or user ID is invalid',
+        error: error.message 
+      });
+    }
+    
+    res.status(500).json({ 
+      message: 'Error updating problem state', 
+      error: error.message 
+    });
   }
 };
 

@@ -31,7 +31,7 @@ model Problem {
   title        String
   difficulty   String
   topic        String
-  leetcodeId   String?
+  leetcodeId   String?    @unique
   titleSlug    String?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt

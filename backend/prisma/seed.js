@@ -9,19 +9,19 @@ async function main() {
   const problems = [
     {
       title: 'Two Sum',
-      description: 'Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.',
+
       difficulty: 'Easy',
       topic: 'Arrays'
     },
     {
       title: 'Reverse Linked List',
-      description: 'Given the head of a singly linked list, reverse the list, and return the reversed list.',
+
       difficulty: 'Easy',
       topic: 'LinkedLists'
     },
     {
       title: 'Binary Tree Level Order Traversal',
-      description: 'Given the root of a binary tree, return the level order traversal of its nodes values.',
+
       difficulty: 'Medium',
       topic: 'Trees'
     }
@@ -43,4 +43,4 @@ main()
   })
   .finally(async () => {
     await prisma.$disconnect();
-  }); 
+  });
