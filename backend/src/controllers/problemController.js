@@ -76,12 +76,14 @@ const getProblems = async (req, res) => {
             }
           },
           {
-            OR: [
-              { title: { not: { contains: "Median of Two Sorted Arrays" } } },
-              { title: { equals: "Median of Two Sorted Arrays" }, userProblems: { none: { userId: userId } } }
-            ]
+            leetcodeId: {
+              not: null
+            }
           }
         ]
+      },
+      orderBy: {
+        leetcodeId: 'asc'
       }
     });
     console.log(`Found ${problems.length} available problems in database`);
