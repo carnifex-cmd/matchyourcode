@@ -6,6 +6,43 @@ const TOTAL_PROBLEMS = 3000; // Target number of problems to fetch
 
 const prisma = require('../config/database');
 
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 5000; // 5 seconds
+
+const fetchWithRetry = async (skip, batch, query) => {
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const response = await axios.post(LEETCODE_API_URL, {
+        operationName: 'problemsetQuestionList',
+        query: query,
+        variables: {
+          categorySlug: '',
+          skip: skip,
+          limit: BATCH_SIZE,
+          filters: {}
+        }
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'User-Agent': 'Mozilla/5.0'
+        },
+        timeout: 10000 // 10 seconds timeout
+      });
+
+      if (!response.data?.data?.problemsetQuestionList?.questions) {
+        throw new Error('Invalid response format');
+      }
+
+      return response.data.data.problemsetQuestionList.questions;
+    } catch (error) {
+      console.error(`Attempt ${attempt}/${MAX_RETRIES} failed for batch ${batch}:`, error.message);
+      if (attempt === MAX_RETRIES) throw error;
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+    }
+  }
+};
+
 const fetchLeetCodeProblems = async (force = false) => {
   // Check if we need to refresh the problems
   const lastUpdate = await prisma.problem.findFirst({
@@ -59,30 +96,13 @@ const fetchLeetCodeProblems = async (force = false) => {
       const skip = batch * BATCH_SIZE;
       console.log(`Fetching batch ${batch + 1}/${totalBatches} (skip: ${skip})`);
       
-      const response = await axios.post(LEETCODE_API_URL, {
-        operationName: 'problemsetQuestionList',
-        query: query,
-        variables: {
-          categorySlug: '',
-          skip: skip,
-          limit: BATCH_SIZE,
-          filters: {}
-        }
-      }, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'User-Agent': 'Mozilla/5.0'
-        }
-      });
-
-      if (!response.data?.data?.problemsetQuestionList?.questions) {
-        console.error('Invalid response format for batch', batch);
-        continue;
+      const batchProblems = await fetchWithRetry(skip, batch, query);
+      if (batchProblems && batchProblems.length > 0) {
+        allProblems.push(...batchProblems);
+        console.log(`Successfully fetched ${batchProblems.length} problems in batch ${batch + 1}`);
+      } else {
+        console.log(`No problems found in batch ${batch + 1}`);
       }
-
-      const batchProblems = response.data.data.problemsetQuestionList.questions;
-      allProblems.push(...batchProblems);
 
       // Add a small delay to avoid rate limiting
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -96,9 +116,7 @@ const fetchLeetCodeProblems = async (force = false) => {
       difficulty: problem.difficulty,
       topic: problem.topicTags[0]?.name || 'General',
       leetcodeId: problem.frontendQuestionId,
-      titleSlug: problem.titleSlug,
-      isPaidOnly: problem.paidOnly,
-      hasSolution: problem.hasSolution
+      titleSlug: problem.titleSlug
     }));
 
     console.log('Transformed problems:', JSON.stringify(transformedProblems, null, 2));

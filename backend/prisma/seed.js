@@ -1,39 +1,26 @@
 const { PrismaClient } = require('@prisma/client');
+const { fetchLeetCodeProblems } = require('../src/utils/leetcode');
 const prisma = new PrismaClient();
 
 async function main() {
-  // Delete existing problems
+  // Delete all problems
   await prisma.problem.deleteMany();
+  console.log('Database has been emptied of all problems');
 
-  // Create initial problems
-  const problems = [
-    {
-      title: 'Two Sum',
-
-      difficulty: 'Easy',
-      topic: 'Arrays'
-    },
-    {
-      title: 'Reverse Linked List',
-
-      difficulty: 'Easy',
-      topic: 'LinkedLists'
-    },
-    {
-      title: 'Binary Tree Level Order Traversal',
-
-      difficulty: 'Medium',
-      topic: 'Trees'
-    }
-  ];
-
-  for (const problem of problems) {
-    await prisma.problem.create({
-      data: problem
+  // Fetch and store problems from LeetCode
+  console.log('Fetching problems from LeetCode...');
+  const problems = await fetchLeetCodeProblems(true);
+  
+  if (problems.length > 0) {
+    console.log(`Storing ${problems.length} problems in database...`);
+    await prisma.problem.createMany({
+      data: problems,
+      skipDuplicates: true
     });
+    console.log('Problems stored successfully!');
+  } else {
+    console.log('No problems fetched from LeetCode');
   }
-
-  console.log('Database has been seeded with initial problems');
 }
 
 main()

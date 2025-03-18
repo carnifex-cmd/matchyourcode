@@ -31,53 +31,74 @@ const getProblems = async (req, res) => {
     const skip = (page - 1) * limit;
 
     // Get total count of problems
-    const totalProblems = await prisma.problem.count();
-
-    // Fetch problems from database first with pagination
-    let problems = await prisma.problem.findMany({
-      take: limit,
-      skip: skip
-    });
-    console.log(`Found ${problems.length} problems in database`);
-
-    // Check if we need to fetch/update problems from LeetCode
-    const leetcodeProblems = await fetchLeetCodeProblems();
-    if (leetcodeProblems.length > 0) {
-      console.log('Fetching/updating problems from LeetCode...');
-      
-      // Store or update problems in the database using upsert
-      for (const problem of leetcodeProblems) {
-        await prisma.problem.upsert({
-          where: { leetcodeId: problem.leetcodeId },
-          update: {
-            title: problem.title,
-            difficulty: problem.difficulty,
-            topic: problem.topic,
-            titleSlug: problem.titleSlug
-          },
-          create: {
-            title: problem.title,
-            difficulty: problem.difficulty,
-            topic: problem.topic,
-            leetcodeId: problem.leetcodeId,
-            titleSlug: problem.titleSlug
-          }
+    let totalProblems = await prisma.problem.count();
+    
+    // Force fetch problems if database is empty
+    if (totalProblems === 0) {
+      console.log('Database is empty. Forcing fetch of LeetCode problems...');
+      const leetcodeProblems = await fetchLeetCodeProblems(true);
+      if (leetcodeProblems.length > 0) {
+        console.log(`Storing ${leetcodeProblems.length} problems in database...`);
+        await prisma.problem.createMany({
+          data: leetcodeProblems,
+          skipDuplicates: true
         });
+        
+        // Recount problems after populating the database
+        totalProblems = await prisma.problem.count();
+        
+        // If still empty, wait and retry a few times
+        let retryCount = 0;
+        while (totalProblems === 0 && retryCount < 3) {
+          console.log(`Waiting for database population... Attempt ${retryCount + 1}`);
+          await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
+          totalProblems = await prisma.problem.count();
+          retryCount++;
+        }
+        
+        if (totalProblems === 0) {
+          throw new Error('Failed to populate database after multiple attempts');
+        }
       }
-      
-      // Refetch problems after update
-      problems = await prisma.problem.findMany({
-        take: limit,
-        skip: skip
-      });
-
-      // Fetch the newly created problems
-      problems = await prisma.problem.findMany();
     }
 
-    // Get user states for the problems and fetch user's lastViewedProblemId
+    // Fetch problems from database with pagination and user state
+    let problems = await prisma.problem.findMany({
+      take: limit,
+      skip: skip,
+      where: {
+        AND: [
+          {
+            userProblems: {
+              none: {
+                userId: userId
+              }
+            }
+          },
+          {
+            OR: [
+              { title: { not: { contains: "Median of Two Sorted Arrays" } } },
+              { title: { equals: "Median of Two Sorted Arrays" }, userProblems: { none: { userId: userId } } }
+            ]
+          }
+        ]
+      }
+    });
+    console.log(`Found ${problems.length} available problems in database`);
+
+    // Problems are already in the database, no need to fetch from LeetCode
+    // The fetchLeetCodeProblems function will handle weekly updates internally
+
+    // Get problems with user states and fetch user's lastViewedProblemId
     const [problems_with_state, user] = await Promise.all([
       prisma.problem.findMany({
+        where: {
+          userProblems: {
+            some: {
+              userId: userId
+            }
+          }
+        },
         include: {
           userProblems: {
             where: {
@@ -92,12 +113,13 @@ const getProblems = async (req, res) => {
       })
     ]);
     
-    problems = problems_with_state;
+    // Combine available problems with problems that have user states
+    problems = [...problems, ...problems_with_state];
 
 
     // Process problems to include user state
     const processedProblems = await Promise.all(problems.map(async problem => {
-      const userProblem = problem.userProblems[0];
+      const userProblem = problem.userProblems && problem.userProblems.length > 0 ? problem.userProblems[0] : null;
       
       // If no user problem state exists, return the original problem
       if (!userProblem) {
