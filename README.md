@@ -1,12 +1,83 @@
-# React + Vite
+# MatchYourCode - LeetCode Practice with Spaced Repetition
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+MatchYourCode is a web application designed to help developers practice LeetCode problems effectively using a spaced repetition system. It provides a personalized learning experience by tracking your progress and organizing problems based on your learning needs.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### Problem Management
+- View and filter LeetCode problems by difficulty (Easy, Medium, Hard)
+- Filter problems by topics (Arrays, Trees, Dynamic Programming, etc.)
+- Mark problems as "Need to Learn" or "Know It"
+- Direct links to LeetCode problem pages
+- Visual indicators for problem difficulty and topics
 
-## Expanding the ESLint configuration
+### Spaced Repetition System
+- Smart organization of problems into different states:
+  - New problems
+  - Problems to learn
+  - Problems to revise
+- Weekly problem refresh mechanism
+- Progress tracking for each problem
 
-If you are developing a production application, we recommend using TypeScript and enable type-aware lint rules. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### User Features
+- Secure authentication system
+- Personalized problem preferences
+- Progress tracking across sessions
+- Customizable difficulty and topic filters
+
+## Technical Stack
+
+### Frontend
+- React.js with Vite build tool
+- Context API for state management
+- CSS for modern, responsive styling
+- Component-based architecture
+
+### Backend
+- Express.js server
+- PostgreSQL database with Prisma ORM
+- LeetCode API integration
+- JWT-based authentication
+
+## Project Structure
+
+```
+├── backend/
+│   ├── prisma/           # Database schema and migrations
+│   └── src/
+│       ├── config/       # Database and server configuration
+│       ├── controllers/  # Request handlers
+│       ├── middleware/   # Auth and validation middleware
+│       ├── routes/       # API endpoints
+│       └── utils/        # LeetCode API integration
+└── src/
+    ├── components/       # React UI components
+    ├── context/          # Auth and state management
+    └── services/         # API integration services
+```
+
+## Database Schema
+
+### User Model
+- Authentication details (username, email, password)
+- Problem preferences (difficulty, topics)
+- Progress tracking
+
+### Problem Model
+- LeetCode problem metadata
+- Difficulty and topic categorization
+- Unique identifiers and slugs
+
+### UserProblem Model
+- Tracks user-problem interactions
+- Manages learning states
+- Records progress history
+
+## Data Synchronization
+
+- Automated LeetCode problem fetching
+- Weekly data refresh mechanism
+- Batch processing for efficiency
+- Duplicate prevention system
+
+This application enhances LeetCode practice by providing a structured, personalized approach to problem-solving through spaced repetition learning.
